@@ -13,6 +13,8 @@ public class InspectionRequestResponse {
     private UUID id;
     private UUID farmId;
     private String farmName;
+    private String farmLocation;
+    private String itemName;
     private UUID vendorId;
     private String vendorName;
     private String notes;

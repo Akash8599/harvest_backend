@@ -15,6 +15,7 @@ public class FarmInspectionResponse {
     private UUID id;
     private UUID farmId;
     private String farmName;
+    private String itemName;
     private String farmLocation;
     private UUID vendorId;
     private String vendorName;
