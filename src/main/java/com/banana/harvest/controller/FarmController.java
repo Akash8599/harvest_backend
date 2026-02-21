@@ -192,4 +192,15 @@ public class FarmController {
                 status);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @PatchMapping("/inspections/requests/{id}/cancel")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
+    @Operation(summary = "Cancel inspection request", description = "Cancel a PENDING inspection request")
+    public ResponseEntity<ApiResponse<InspectionRequestResponse>> cancelInspectionRequest(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        log.info("Cancelling inspection request - requestId: {}, cancelledBy: {}", id, userPrincipal.getId());
+        InspectionRequestResponse response = farmService.cancelInspectionRequest(id, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Request cancelled successfully", response));
+    }
 }

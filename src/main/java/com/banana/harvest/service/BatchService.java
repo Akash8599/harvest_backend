@@ -73,6 +73,20 @@ public class BatchService {
             }
         }
 
+        // Allow IN_TRANSIT transition from DISPATCH_COMPLETED
+        if (request.getStatus() == BatchStatus.IN_TRANSIT) {
+            if (batch.getStatus() != BatchStatus.DISPATCH_COMPLETED) {
+                throw new BusinessException("Batch must be in DISPATCH_COMPLETED status to transition to IN_TRANSIT.");
+            }
+        }
+
+        // Allow DELIVERED transition from IN_TRANSIT
+        if (request.getStatus() == BatchStatus.DELIVERED) {
+            if (batch.getStatus() != BatchStatus.IN_TRANSIT && batch.getStatus() != BatchStatus.DISPATCH_COMPLETED) {
+                throw new BusinessException("Batch must be in IN_TRANSIT status to transition to DELIVERED.");
+            }
+        }
+
         batch.setStatus(request.getStatus());
         
         // Track specific status dates
@@ -99,6 +113,7 @@ public class BatchService {
                 .inspectionId(batch.getInspection() != null ? batch.getInspection().getId() : null)
                 .farmId(batch.getFarm() != null ? batch.getFarm().getId() : null)
                 .farmName(batch.getFarm() != null ? batch.getFarm().getFarmerName() : null)
+                .farmLocation(batch.getFarm() != null ? batch.getFarm().getLocation() : null)
                 .produceType(batch.getFarm() != null ? batch.getFarm().getProduceType() : null)
                 .vendorId(batch.getVendor() != null ? batch.getVendor().getId() : null)
                 .vendorName(batch.getVendor() != null ? batch.getVendor().getFullName() : null)
