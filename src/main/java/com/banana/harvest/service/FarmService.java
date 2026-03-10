@@ -121,21 +121,6 @@ public class FarmService {
                 User vendor = userRepository.findById(vendorId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", vendorId));
 
-                log.debug("Validating GPS location - farmLat: {}, farmLon: {}, inspectionLat: {}, inspectionLon: {}, accuracy: {}",
-                                farm.getLatitude(), farm.getLongitude(), request.getGpsLatitude(),
-                                request.getGpsLongitude(), request.getGpsAccuracy());
-
-                // Validate GPS location using enhanced validation
-                /*
-                 * gpsValidationService.validateGpsLocation(
-                 * farm.getLatitude(),
-                 * farm.getLongitude(),
-                 * request.getGpsLatitude(),
-                 * request.getGpsLongitude(),
-                 * request.getGpsAccuracy()
-                 * );
-                 */
-
                 // Validate photo/video requirements (fraud prevention)
                 int photoCount = 0;
                 int videoCount = 0;
@@ -372,16 +357,7 @@ public class FarmService {
                 return "BATCH-" + datePrefix + "-" + String.format("%04d", count);
         }
 
-        private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-                final int R = 6371; // Earth's radius in km
-                double latDistance = Math.toRadians(lat2 - lat1);
-                double lonDistance = Math.toRadians(lon2 - lon1);
-                double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                                                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-                double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                return R * c;
-        }
+
 
         private FarmResponse mapToFarmResponse(Farm farm) {
                 return FarmResponse.builder()
@@ -520,6 +496,22 @@ public class FarmService {
                 return requests.stream()
                                 .map(this::mapToInspectionRequestResponse)
                                 .collect(Collectors.toList());
+        }
+
+        @Transactional
+        public InspectionRequestResponse cancelInspectionRequest(UUID requestId, UUID cancelledById) {
+                log.info("Cancelling inspection request - requestId: {}, cancelledBy: {}", requestId, cancelledById);
+                InspectionRequest request = inspectionRequestRepository.findById(requestId)
+                                .orElseThrow(() -> new ResourceNotFoundException("InspectionRequest", "id", requestId));
+                // Guard: only PENDING requests can be cancelled
+                if (request.getStatus() != InspectionRequestStatus.PENDING) {
+                        throw new BusinessException("Only PENDING requests can be cancelled. Current status: " + request.getStatus());
+                }
+                request.setStatus(InspectionRequestStatus.CANCELLED);
+                request.setCompletedAt(LocalDateTime.now());
+                InspectionRequest saved = inspectionRequestRepository.save(request);
+                log.info("Inspection request cancelled - requestId: {}", requestId);
+                return mapToInspectionRequestResponse(saved);
         }
 
         private InspectionRequestResponse mapToInspectionRequestResponse(InspectionRequest request) {

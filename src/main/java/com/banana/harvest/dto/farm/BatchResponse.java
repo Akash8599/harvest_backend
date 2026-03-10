@@ -16,6 +16,7 @@ public class BatchResponse {
     private UUID inspectionId;
     private UUID farmId;
     private String farmName;
+    private String farmLocation;
     private String produceType;
     private UUID vendorId;
     private String vendorName;

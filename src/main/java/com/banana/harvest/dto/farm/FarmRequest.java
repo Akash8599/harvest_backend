@@ -1,7 +1,7 @@
 package com.banana.harvest.dto.farm;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -15,10 +15,8 @@ public class FarmRequest {
     @NotBlank(message = "Location is required")
     private String location;
     
-    @NotNull(message = "Latitude is required")
     private BigDecimal latitude;
     
-    @NotNull(message = "Longitude is required")
     private BigDecimal longitude;
     
     private String contactNumber;

@@ -29,7 +29,7 @@ public class DatabaseRepairRunner implements CommandLineRunner {
         try {
             jdbcTemplate.execute("ALTER TABLE banana_harvest.batches DROP CONSTRAINT IF EXISTS batches_status_check");
             jdbcTemplate.execute(
-                    "ALTER TABLE banana_harvest.batches ADD CONSTRAINT batches_status_check CHECK (status IN ('CREATED', 'IN_PROGRESS', 'HARVEST_IN_PROGRESS', 'HARVEST_COMPLETED', 'DISPATCH_IN_PROGRESS', 'DISPATCH_COMPLETED', 'COMPLETED', 'CANCELLED'))");
+                    "ALTER TABLE banana_harvest.batches ADD CONSTRAINT batches_status_check CHECK (status IN ('CREATED', 'IN_PROGRESS', 'HARVEST_IN_PROGRESS', 'HARVEST_COMPLETED', 'DISPATCH_IN_PROGRESS', 'DISPATCH_COMPLETED', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'))");
             log.info("Successfully updated batches_status_check constraint.");
         } catch (Exception e) {
             log.error("Failed to update status constraint: {}", e.getMessage());

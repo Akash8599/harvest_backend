@@ -234,17 +234,15 @@ public class HarvestService {
                 batch.setDispatchedBoxes(batch.getDispatchedBoxes() + request.getTotalBoxes());
                 batch.setGatePassRemaining(batch.getHarvestedBoxes() - batch.getDispatchedBoxes());
 
-                // Update batch status
-                if (batch.getDispatchedBoxes() > 0 && batch.getDispatchedBoxes() < batch.getHarvestedBoxes()) {
-                        log.debug("Updating batch status to DISPATCH_IN_PROGRESS - batchId: {}", batch.getId());
-                        batch.setStatus(BatchStatus.DISPATCH_IN_PROGRESS);
-                } else if (batch.getDispatchedBoxes() >= batch.getHarvestedBoxes()) {
-                        if (batch.getHarvestedBoxes() >= batch.getAllocatedBoxes()) {
-                                log.debug("Updating batch status to DISPATCH_COMPLETED - batchId: {}", batch.getId());
-                                batch.setStatus(BatchStatus.DISPATCH_COMPLETED);
+                // Update batch status - auto-update based on dispatch progress
+                if (batch.getDispatchedBoxes() > 0 && batch.getStatus() != BatchStatus.DISPATCH_COMPLETED && batch.getStatus() != BatchStatus.IN_TRANSIT && batch.getStatus() != BatchStatus.DELIVERED) {
+                        // If all boxes dispatched, auto-set to IN_TRANSIT
+                        if (batch.getDispatchedBoxes() >= batch.getHarvestedBoxes()) {
+                                log.debug("All boxes dispatched - updating batch status to IN_TRANSIT - batchId: {}", batch.getId());
+                                batch.setStatus(BatchStatus.IN_TRANSIT);
                         } else {
-                                log.debug("Dispatch caught up with harvest - batchId: {}", batch.getId());
-                                batch.setStatus(BatchStatus.HARVEST_IN_PROGRESS);
+                                log.debug("Updating batch status to DISPATCH_IN_PROGRESS - batchId: {}", batch.getId());
+                                batch.setStatus(BatchStatus.DISPATCH_IN_PROGRESS);
                         }
                 }
 
