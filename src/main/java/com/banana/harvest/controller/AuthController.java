@@ -36,13 +36,23 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-//    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Register new user", description = "Create a new user account (Admin/Manager only)")
     public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
         log.info("User registration request for email: {}, role: {}", request.getEmail(), request.getRole());
         UserResponse response = authService.register(request);
         log.info("User registered successfully - userId: {}, email: {}, role: {}", response.getId(), response.getEmail(), response.getRole());
         return ResponseEntity.ok(ApiResponse.success("User registered successfully", response));
+    }
+
+    @PostMapping("/admin/create-user")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
+    @Operation(summary = "Admin create user", description = "Admin creates a user with a system-generated password")
+    public ResponseEntity<ApiResponse<AdminCreateUserResponse>> adminCreateUser(
+            @Valid @RequestBody AdminCreateUserRequest request) {
+        log.info("Admin creating user - email: {}, role: {}", request.getEmail(), request.getRole());
+        AdminCreateUserResponse response = authService.adminCreateUser(request);
+        log.info("Admin user created - userId: {}, email: {}", response.getId(), response.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("User created successfully", response));
     }
 
     @PostMapping("/refresh")
@@ -83,8 +93,8 @@ public class AuthController {
     }
 
     @PostMapping("/approve/{userId}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Operation(summary = "Approve user", description = "Activate a pending user account (Super Admin only)")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
+    @Operation(summary = "Approve user", description = "Activate a pending user account (Super Admin or Manager)")
     public ResponseEntity<ApiResponse<UserResponse>> approveUser(@PathVariable UUID userId) {
         log.info("User approval request for userId: {}", userId);
         UserResponse response = authService.approveUser(userId);
@@ -92,7 +102,19 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("User approved successfully", response));
     }
 
-    @PostMapping("/deactivate/{userId}")
+    @PutMapping("/users/{userId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Update user", description = "Update user details (Super Admin only)")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(
+            @PathVariable UUID userId,
+            @Valid @RequestBody AdminCreateUserRequest request) {
+        log.info("User update request for userId: {}", userId);
+        UserResponse response = authService.updateUser(userId, request);
+        log.info("User updated successfully - userId: {}", response.getId());
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully", response));
+    }
+
+    @PostMapping("/users/{userId}/deactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "Deactivate user", description = "Deactivate an active user account (Super Admin only)")
     public ResponseEntity<ApiResponse<UserResponse>> deactivateUser(@PathVariable UUID userId) {
@@ -100,6 +122,16 @@ public class AuthController {
         UserResponse response = authService.deactivateUser(userId);
         log.info("User deactivated successfully - userId: {}, email: {}", response.getId(), response.getEmail());
         return ResponseEntity.ok(ApiResponse.success("User deactivated successfully", response));
+    }
+
+    @PostMapping("/users/{userId}/activate")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Activate user", description = "Reactivate a deactivated user account (Super Admin only)")
+    public ResponseEntity<ApiResponse<UserResponse>> activateUser(@PathVariable UUID userId) {
+        log.info("User activation request for userId: {}", userId);
+        UserResponse response = authService.activateUser(userId);
+        log.info("User activated successfully - userId: {}, email: {}", response.getId(), response.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("User activated successfully", response));
     }
 
     @GetMapping("/users/pending")

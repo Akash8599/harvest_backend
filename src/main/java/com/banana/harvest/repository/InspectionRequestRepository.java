@@ -16,4 +16,6 @@ public interface InspectionRequestRepository extends JpaRepository<InspectionReq
     List<InspectionRequest> findByVendorId(UUID vendorId);
     
     List<InspectionRequest> findByStatus(InspectionRequestStatus status);
+
+    java.util.Optional<InspectionRequest> findTopByFarmIdOrderByCreatedAtDesc(UUID farmId);
 }

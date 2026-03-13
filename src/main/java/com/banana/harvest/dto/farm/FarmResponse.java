@@ -23,4 +23,5 @@ public class FarmResponse {
     private String createdByName;
     private LocalDateTime createdAt;
     private com.banana.harvest.entity.enums.FarmStatus status;
+    private java.time.LocalDate latestVisitDate;
 }

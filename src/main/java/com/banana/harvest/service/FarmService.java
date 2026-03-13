@@ -40,6 +40,7 @@ public class FarmService {
         private final GpsValidationService gpsValidationService;
         private final PhotoValidationService photoValidationService;
         private final NotificationService notificationService;
+        private final InventoryService inventoryService;
 
         @Transactional
         public FarmResponse createFarm(FarmRequest request, UUID userId) {
@@ -82,9 +83,9 @@ public class FarmService {
 
                 // Log each farm's details
                 farmResponses.forEach(farm -> log.info(
-                                "Farm: id={}, farmerName={}, location={}, totalArea={} {}, contactNumber={}",
+                                "Farm: id={}, farmerName={}, location={}, totalArea={} {}, contactNumber={}, visitDate={}",
                                 farm.getId(), farm.getFarmerName(), farm.getLocation(),
-                                farm.getTotalArea(), farm.getAreaUnit(), farm.getContactNumber()));
+                                farm.getTotalArea(), farm.getAreaUnit(), farm.getContactNumber(), farm.getLatestVisitDate()));
 
                 log.info("Successfully retrieved {} farms", farmResponses.size());
                 return farmResponses;
@@ -149,6 +150,8 @@ public class FarmService {
                                 .gpsLongitude(request.getGpsLongitude())
                                 .gpsAccuracy(request.getGpsAccuracy())
                                 .status(InspectionStatus.PENDING)
+                                .proposedRate(request.getProposedRate())
+                                .farmerProposedRate(request.getFarmerProposedRate())
                                 .build();
 
                 if (request.getRequestId() != null && !request.getRequestId().isEmpty()) {
@@ -189,9 +192,9 @@ public class FarmService {
         }
 
         @Transactional
-        public BatchResponse approveInspection(UUID inspectionId, ApprovalRequest request, UUID approverId) {
-                log.info("Processing inspection approval - inspectionId: {}, approved: {}, approverId: {}",
-                                inspectionId, request.getApproved(), approverId);
+        public FarmInspectionResponse approveInspection(UUID inspectionId, ApprovalRequest request, UUID approverId) {
+                log.info("Processing inspection approval/update - inspectionId: {}, approverId: {}",
+                                inspectionId, approverId);
 
                 FarmInspection inspection = inspectionRepository.findById(inspectionId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Inspection", "id", inspectionId));
@@ -199,10 +202,47 @@ public class FarmService {
                 User approver = userRepository.findById(approverId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", approverId));
 
-                if (request.getApproved()) {
+                // 1. Process Rate Negotiation fields (PATCH)
+                if (request.getRateStatus() != null) {
+                        inspection.setRateStatus(request.getRateStatus());
+                }
+                if (request.getAdminCounterRate() != null) {
+                        inspection.setAdminCounterRate(request.getAdminCounterRate());
+                }
+                if (request.getProposedRate() != null) {
+                        inspection.setProposedRate(request.getProposedRate());
+                }
+                if (request.getFarmerProposedRate() != null) {
+                        inspection.setFarmerProposedRate(request.getFarmerProposedRate());
+                }
+                if (request.getNegotiationNotes() != null) {
+                        String currentNotes = inspection.getNegotiationNotes();
+                        if (currentNotes == null || currentNotes.trim().isEmpty()) {
+                                inspection.setNegotiationNotes(request.getNegotiationNotes());
+                        } else {
+                                inspection.setNegotiationNotes(currentNotes + "\n" + request.getNegotiationNotes());
+                        }
+                }
+
+                // 2. Determine Approval/Rejection State
+                // Explicitly check for FALSE, ignoring nulls during rate negotiation PATCHes
+                boolean isApproved = Boolean.TRUE.equals(request.getApproved()) 
+                                || InspectionStatus.APPROVED.equals(request.getStatus());
+                boolean isRejected = Boolean.FALSE.equals(request.getApproved())
+                                || InspectionStatus.REJECTED.equals(request.getStatus());
+
+                if (isApproved) {
                         inspection.setStatus(InspectionStatus.APPROVED);
                         inspection.setApprovedBy(approver);
                         inspection.setApprovedAt(LocalDateTime.now());
+                        
+                        if (request.getAllocatedBoxes() != null) inspection.setAllocatedBoxes(request.getAllocatedBoxes());
+                        if (request.getLinersQty() != null) inspection.setLinersQty(request.getLinersQty());
+                        if (request.getCornersQty() != null) inspection.setCornersQty(request.getCornersQty());
+                        if (request.getTapeRolls() != null) inspection.setTapeRolls(request.getTapeRolls());
+                        if (request.getExpectedHarvestDate() != null) inspection.setExpectedHarvestDate(request.getExpectedHarvestDate());
+                        if (request.getApprovalNotes() != null) inspection.setInspectionNotes(request.getApprovalNotes());
+                        
                         inspectionRepository.save(inspection);
 
                         // Update farm status
@@ -212,9 +252,12 @@ public class FarmService {
 
                         // Create batch
                         String batchId = generateBatchId();
-                        log.debug("Creating batch - batchId: {}, inspectionId: {}, farmId: {}, vendorId: {}",
-                                        batchId, inspectionId, inspection.getFarm().getId(),
-                                        inspection.getVendor().getId());
+                        log.debug("Creating batch - batchId: {}, inspectionId: {}", batchId, inspectionId);
+
+                        int estimatedBoxesSafe = inspection.getEstimatedBoxes() != null ? inspection.getEstimatedBoxes() : 0;
+                        int boxesToAllocate = (request.getAllocatedBoxes() != null && request.getAllocatedBoxes() > 0)
+                                        ? request.getAllocatedBoxes()
+                                        : estimatedBoxesSafe;
 
                         Batch batch = Batch.builder()
                                         .batchId(batchId)
@@ -222,30 +265,46 @@ public class FarmService {
                                         .farm(inspection.getFarm())
                                         .vendor(inspection.getVendor())
                                         .status(BatchStatus.CREATED)
-                                        .estimatedBoxes(inspection.getEstimatedBoxes())
-                                        .allocatedBoxes(inspection.getEstimatedBoxes())
+                                        .estimatedBoxes(estimatedBoxesSafe)
+                                        .allocatedBoxes(boxesToAllocate)
                                         .harvestedBoxes(0)
-                                        .remainingBoxes(inspection.getEstimatedBoxes())
+                                        .remainingBoxes(boxesToAllocate)
                                         .dispatchedBoxes(0)
                                         .gatePassRemaining(0)
                                         .startDate(LocalDate.now())
                                         .createdBy(approver)
                                         .build();
 
-                        Batch savedBatch = batchRepository.save(batch);
-
-                        log.info("Inspection approved and batch created - inspectionId: {}, batchId: {}, estimatedBoxes: {}",
-                                        inspectionId, batchId, inspection.getEstimatedBoxes());
-
-                        // Notify vendor about approval
+                        batchRepository.save(batch);
+                        log.info("Inspection approved and batch created - batchId: {}", batchId);
                         notificationService.notifyInspectionApproved(inspection.getId(), batchId);
 
-                        return mapToBatchResponse(savedBatch);
-                } else {
+                        // Allocate Boxes
+                        if (request.getBoxItemId() != null && boxesToAllocate > 0) {
+                                try {
+                                        com.banana.harvest.dto.inventory.InventoryAllocationRequest allocationRequest = new com.banana.harvest.dto.inventory.InventoryAllocationRequest();
+                                        allocationRequest.setBatchId(batch.getId().toString());
+                                        allocationRequest.setItemId(request.getBoxItemId().toString());
+                                        allocationRequest.setQuantity(boxesToAllocate);
+                                        allocationRequest.setNotes("Automatically allocated upon inspection approval");
+
+                                        inventoryService.allocateInventory(allocationRequest, approverId);
+                                        log.info("Boxes allocated successfully for batchId: {}, itemId: {}, quantity: {}", batchId, request.getBoxItemId(), boxesToAllocate);
+                                } catch (Exception e) {
+                                        log.error("Failed to allocate boxes automatically", e);
+                                        // Depending on business requirements, this could either throw to rollback the whole approval, or just skip it.
+                                        // We will throw to ensure data integrity - an admin must resolve stock issues or allocate zero boxes if stock is unavailable.
+                                        throw new BusinessException("Failed to allocate boxes. Please ensure enough stock is available for the selected box item. " + e.getMessage());
+                                }
+                        }
+
+                } else if (isRejected) {
                         inspection.setStatus(InspectionStatus.REJECTED);
                         inspection.setApprovedBy(approver);
                         inspection.setApprovedAt(LocalDateTime.now());
-                        inspection.setRejectionReason(request.getRejectionReason());
+                        if (request.getRejectionReason() != null) {
+                                inspection.setRejectionReason(request.getRejectionReason());
+                        }
                         inspectionRepository.save(inspection);
 
                         // Update farm status
@@ -253,14 +312,15 @@ public class FarmService {
                         farm.setStatus(com.banana.harvest.entity.enums.FarmStatus.INSPECTION_REJECTED);
                         farmRepository.save(farm);
 
-                        log.warn("Inspection rejected - inspectionId: {}, reason: {}", inspectionId,
-                                        request.getRejectionReason());
-
-                        // Notify vendor about rejection
+                        log.warn("Inspection rejected - inspectionId: {}", inspectionId);
                         notificationService.notifyInspectionRejected(inspection.getId(), request.getRejectionReason());
-
-                        throw new BusinessException("Inspection rejected: " + request.getRejectionReason());
+                } else {
+                        // It's just a PATCH for negotiation
+                        inspectionRepository.save(inspection);
+                        log.info("Inspection rate negotiation updated - inspectionId: {}", inspectionId);
                 }
+
+                return mapToInspectionResponse(inspection);
         }
 
         @Transactional(readOnly = true)
@@ -360,23 +420,29 @@ public class FarmService {
 
 
         private FarmResponse mapToFarmResponse(Farm farm) {
-                return FarmResponse.builder()
-                                .id(farm.getId())
-                                .farmerName(farm.getFarmerName())
-                                .location(farm.getLocation())
-                                .latitude(farm.getLatitude())
-                                .longitude(farm.getLongitude())
-                                .contactNumber(farm.getContactNumber())
-                                .totalArea(farm.getTotalArea())
-                                .areaUnit(farm.getAreaUnit())
-                                .produceType(farm.getProduceType())
-                                .createdBy(farm.getCreatedBy() != null ? farm.getCreatedBy().getId() : null)
-                                .createdByName(farm.getCreatedBy() != null ? farm.getCreatedBy().getFullName() : null)
-                                .createdAt(farm.getCreatedAt())
-                                .status(farm.getStatus())
-                                .build();
+        java.time.LocalDate latestVisitDate = null;
+        java.util.Optional<InspectionRequest> latestRequest = inspectionRequestRepository.findTopByFarmIdOrderByCreatedAtDesc(farm.getId());
+        if (latestRequest.isPresent()) {
+            latestVisitDate = latestRequest.get().getVisitDate();
         }
 
+        return FarmResponse.builder()
+                .id(farm.getId())
+                .farmerName(farm.getFarmerName())
+                .location(farm.getLocation())
+                .latitude(farm.getLatitude())
+                .longitude(farm.getLongitude())
+                .contactNumber(farm.getContactNumber())
+                .totalArea(farm.getTotalArea())
+                .areaUnit(farm.getAreaUnit())
+                .produceType(farm.getProduceType())
+                .createdBy(farm.getCreatedBy() != null ? farm.getCreatedBy().getId() : null)
+                .createdByName(farm.getCreatedBy() != null ? farm.getCreatedBy().getFullName() : null)
+                .createdAt(farm.getCreatedAt())
+                .status(farm.getStatus())
+                .latestVisitDate(latestVisitDate)
+                .build();
+    }
         private FarmInspectionResponse mapToInspectionResponse(FarmInspection inspection) {
                 return FarmInspectionResponse.builder()
                                 .id(inspection.getId())
@@ -387,6 +453,16 @@ public class FarmService {
                                 .vendorId(inspection.getVendor().getId())
                                 .vendorName(inspection.getVendor().getFullName())
                                 .estimatedBoxes(inspection.getEstimatedBoxes())
+                                .allocatedBoxes(inspection.getAllocatedBoxes())
+                                .linersQty(inspection.getLinersQty())
+                                .cornersQty(inspection.getCornersQty())
+                                .tapeRolls(inspection.getTapeRolls())
+                                .expectedHarvestDate(inspection.getExpectedHarvestDate())
+                                .proposedRate(inspection.getProposedRate())
+                                .farmerProposedRate(inspection.getFarmerProposedRate())
+                                .adminCounterRate(inspection.getAdminCounterRate())
+                                .rateStatus(inspection.getRateStatus())
+                                .negotiationNotes(inspection.getNegotiationNotes())
                                 .inspectionNotes(inspection.getInspectionNotes())
                                 .gpsLatitude(inspection.getGpsLatitude())
                                 .gpsLongitude(inspection.getGpsLongitude())
@@ -451,6 +527,11 @@ public class FarmService {
                                 .vendor(vendor)
                                 .createdBy(createdBy)
                                 .notes(request.getNotes())
+                                .visitDate(request.getVisitDate())
+                                .placeOfVisit(request.getPlaceOfVisit())
+                                .visitorName(request.getVisitorName())
+                                .visitorContact(request.getVisitorContact())
+                                .proposedRate(request.getProposedRate())
                                 .status(InspectionRequestStatus.PENDING)
                                 .build();
 
@@ -525,6 +606,11 @@ public class FarmService {
                                 .vendorName(request.getVendor().getFullName())
                                 .notes(request.getNotes())
                                 .status(request.getStatus())
+                                .visitDate(request.getVisitDate())
+                                .placeOfVisit(request.getPlaceOfVisit())
+                                .visitorName(request.getVisitorName())
+                                .visitorContact(request.getVisitorContact())
+                                .proposedRate(request.getProposedRate())
                                 .createdAt(request.getCreatedAt())
                                 .completedAt(request.getCompletedAt())
                                 .build();

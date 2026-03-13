@@ -125,16 +125,16 @@ public class FarmController {
     }
 
     @PostMapping("/inspections/{id}/approve")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('VENDOR') or hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Approve/Reject inspection", description = "Approve or reject a farm inspection")
-    public ResponseEntity<ApiResponse<BatchResponse>> approveInspection(
+    public ResponseEntity<ApiResponse<FarmInspectionResponse>> approveInspection(
             @PathVariable UUID id,
             @Valid @RequestBody ApprovalRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        log.info("Processing inspection approval - inspectionId: {}, approved: {}, approverId: {}",
-                id, request.getApproved(), userPrincipal.getId());
-        BatchResponse response = farmService.approveInspection(id, request, userPrincipal.getId());
-        log.info("Inspection processed - inspectionId: {}, batchId: {}", id, response.getBatchId());
+        log.info("Processing inspection approval/update - inspectionId: {}, approverId: {}",
+                id, userPrincipal.getId());
+        FarmInspectionResponse response = farmService.approveInspection(id, request, userPrincipal.getId());
+        log.info("Inspection processed - inspectionId: {}", id);
         return ResponseEntity.ok(ApiResponse.success("Inspection processed successfully", response));
     }
 

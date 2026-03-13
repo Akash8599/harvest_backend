@@ -88,20 +88,56 @@ public class HarvestService {
                         // batchRepository.save(batch); // Will be saved later with updated counts
                 }
 
+                // Compute derived transport fields
+                BigDecimal distanceKm = null;
+                BigDecimal transportCost = null;
+                if (request.getOdometerStartKm() != null && request.getOdometerEndKm() != null) {
+                        distanceKm = request.getOdometerEndKm().subtract(request.getOdometerStartKm());
+                        if (distanceKm.compareTo(BigDecimal.ZERO) < 0) distanceKm = BigDecimal.ZERO;
+                        if (request.getRatePerKm() != null) {
+                                transportCost = distanceKm.multiply(request.getRatePerKm()).setScale(2, RoundingMode.HALF_UP);
+                        }
+                }
+
+                // Serialize damagedBoxPhotoUrls list as a simple comma-joined string
+                String damagedPhotoUrlsJson = null;
+                if (request.getDamagedBoxPhotoUrls() != null && !request.getDamagedBoxPhotoUrls().isEmpty()) {
+                        damagedPhotoUrlsJson = String.join(",", request.getDamagedBoxPhotoUrls());
+                }
+
                 DailyHarvestReport report = DailyHarvestReport.builder()
                                 .batch(batch)
                                 .reportDate(request.getReportDate())
+                                .packingWeightType(request.getPackingWeightType())
                                 .boxesPacked(request.getBoxesPacked())
-                                .boxesWasted(request.getBoxesWasted())
-                                .laborCount(request.getLaborCount())
+                                .damagedBoxes(request.getDamagedBoxes() != null ? request.getDamagedBoxes() : 0)
+                                .damagedBoxPhotoUrls(damagedPhotoUrlsJson)
+                                .wastageWeightKg(request.getWastageWeightKg())
+                                .boxesWasted(request.getBoxesWasted() != null ? request.getBoxesWasted() : 0)
+                                .wastagePhotoUrl(request.getWastagePhotoUrl())
+                                .vehicleNumber(request.getVehicleNumber())
+                                .odometerStartKm(request.getOdometerStartKm())
+                                .odometerEndKm(request.getOdometerEndKm())
+                                .distanceKm(distanceKm)
+                                .odometerStartPhotoUrl(request.getOdometerStartPhotoUrl())
+                                .odometerEndPhotoUrl(request.getOdometerEndPhotoUrl())
+                                .ratePerKm(request.getRatePerKm())
+                                .transportCost(transportCost)
+                                .tollAmount(request.getTollAmount())
+                                .tollReceiptPhotoUrl(request.getTollReceiptPhotoUrl())
+                                .weighBridgePhotoUrl(request.getWeighBridgePhotoUrl())
+                                .laborCount(request.getLaborCount() != null ? request.getLaborCount() : 0)
+                                .laborCost(request.getLaborCost())
+                                .laborPaymentStatus(request.getLaborPaymentStatus() != null ? request.getLaborPaymentStatus() : PaymentStatus.PENDING)
                                 .notes(request.getNotes())
                                 .createdBy(user)
                                 .build();
 
                 DailyHarvestReport savedReport = reportRepository.save(report);
 
-                // Create labor cost if provided
-                if (request.getLaborCost() != null && request.getLaborCost().compareTo(BigDecimal.ZERO) > 0) {
+                // Create labor cost record (for batch cost calculation) if laborCost provided
+                if (request.getLaborCost() != null && request.getLaborCost().compareTo(BigDecimal.ZERO) > 0
+                                && request.getBoxesPacked() > 0) {
                         BigDecimal costPerBox = request.getLaborCost()
                                         .divide(BigDecimal.valueOf(request.getBoxesPacked()), 2, RoundingMode.HALF_UP);
 
@@ -114,7 +150,9 @@ public class HarvestService {
                                         .totalAmount(request.getLaborCost())
                                         .costPerBox(costPerBox)
                                         .createdBy(user)
-                                        .paymentStatus(PaymentStatus.PENDING)
+                                        .paymentStatus(request.getLaborPaymentStatus() != null
+                                                ? request.getLaborPaymentStatus()
+                                                : PaymentStatus.PENDING)
                                         .build();
                         laborCostRepository.save(laborCost);
                 }
@@ -414,22 +452,37 @@ public class HarvestService {
         }
 
         private DailyHarvestResponse mapToDailyHarvestResponse(DailyHarvestReport report) {
-                LaborCost laborCost = laborCostRepository.findByBatch(report.getBatch().getId()).stream()
-                                .filter(lc -> lc.getReport().getId().equals(report.getId()))
-                                .findFirst()
-                                .orElse(null);
+                // Parse comma-separated photo URLs back to list
+                java.util.List<String> damagedPhotoUrls = null;
+                if (report.getDamagedBoxPhotoUrls() != null && !report.getDamagedBoxPhotoUrls().isBlank()) {
+                        damagedPhotoUrls = java.util.Arrays.asList(report.getDamagedBoxPhotoUrls().split(","));
+                }
 
                 return DailyHarvestResponse.builder()
                                 .id(report.getId())
                                 .batchId(report.getBatch().getId())
                                 .batchIdCode(report.getBatch().getBatchId())
                                 .reportDate(report.getReportDate())
+                                .packingWeightType(report.getPackingWeightType())
                                 .boxesPacked(report.getBoxesPacked())
+                                .damagedBoxes(report.getDamagedBoxes())
+                                .damagedBoxPhotoUrls(damagedPhotoUrls)
+                                .wastageWeightKg(report.getWastageWeightKg())
                                 .boxesWasted(report.getBoxesWasted())
+                                .wastagePhotoUrl(report.getWastagePhotoUrl())
+                                .vehicleNumber(report.getVehicleNumber())
+                                .odometerStartKm(report.getOdometerStartKm())
+                                .odometerEndKm(report.getOdometerEndKm())
+                                .distanceKm(report.getDistanceKm())
+                                .ratePerKm(report.getRatePerKm())
+                                .transportCost(report.getTransportCost())
+                                .tollAmount(report.getTollAmount())
+                                .weighBridgePhotoUrl(report.getWeighBridgePhotoUrl())
                                 .laborCount(report.getLaborCount())
+                                .laborCost(report.getLaborCost())
+                                .laborPaymentStatus(report.getLaborPaymentStatus() != null
+                                        ? report.getLaborPaymentStatus().name() : null)
                                 .notes(report.getNotes())
-                                .laborCost(laborCost != null ? laborCost.getTotalAmount() : null)
-                                .laborPaymentStatus(laborCost != null ? laborCost.getPaymentStatus().name() : null)
                                 .createdAt(report.getCreatedAt())
                                 .build();
         }

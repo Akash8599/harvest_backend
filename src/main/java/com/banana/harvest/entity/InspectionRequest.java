@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -39,6 +41,21 @@ public class InspectionRequest {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @Column(name = "visit_date")
+    private LocalDate visitDate;
+
+    @Column(name = "place_of_visit", length = 200)
+    private String placeOfVisit;
+
+    @Column(name = "visitor_name", length = 100)
+    private String visitorName;
+
+    @Column(name = "visitor_contact", length = 20)
+    private String visitorContact;
+
+    @Column(name = "proposed_rate", precision = 10, scale = 2)
+    private BigDecimal proposedRate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

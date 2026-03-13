@@ -1,6 +1,7 @@
 package com.banana.harvest.entity;
 
 import com.banana.harvest.entity.enums.UserRole;
+import com.banana.harvest.entity.enums.VendorType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -44,6 +45,19 @@ public class User {
 
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vendor_type")
+    private VendorType vendorType;
+
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "account_number", length = 50)
+    private String accountNumber;
+
+    @Column(name = "ifsc_code", length = 20)
+    private String ifscCode;
 
     @Column(name = "profile_image_url")
     private String profileImageUrl;

@@ -1,10 +1,12 @@
 package com.banana.harvest.dto.farm;
 
 import com.banana.harvest.entity.enums.InspectionStatus;
+import com.banana.harvest.entity.enums.RateStatus;
 import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +22,16 @@ public class FarmInspectionResponse {
     private UUID vendorId;
     private String vendorName;
     private Integer estimatedBoxes;
+    private Integer allocatedBoxes;
+    private Integer linersQty;
+    private Integer cornersQty;
+    private Integer tapeRolls;
+    private LocalDate expectedHarvestDate;
+    private BigDecimal proposedRate;
+    private BigDecimal farmerProposedRate;
+    private BigDecimal adminCounterRate;
+    private RateStatus rateStatus;
+    private String negotiationNotes;
     private String inspectionNotes;
     private BigDecimal gpsLatitude;
     private BigDecimal gpsLongitude;

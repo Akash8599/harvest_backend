@@ -1,6 +1,7 @@
 package com.banana.harvest.entity;
 
 import com.banana.harvest.entity.enums.InspectionStatus;
+import com.banana.harvest.entity.enums.RateStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +11,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +38,40 @@ public class FarmInspection {
     @JoinColumn(name = "vendor_id")
     private User vendor;
 
-    @Column(name = "estimated_boxes", nullable = false)
+    @Column(name = "estimated_boxes")
     private Integer estimatedBoxes;
+
+    @Column(name = "allocated_boxes")
+    private Integer allocatedBoxes;
+
+    @Column(name = "liners_qty")
+    private Integer linersQty;
+
+    @Column(name = "corners_qty")
+    private Integer cornersQty;
+
+    @Column(name = "tape_rolls")
+    private Integer tapeRolls;
+
+    @Column(name = "expected_harvest_date")
+    private LocalDate expectedHarvestDate;
+
+    @Column(name = "proposed_rate", precision = 10, scale = 2)
+    private BigDecimal proposedRate;
+
+    @Column(name = "farmer_proposed_rate", precision = 10, scale = 2)
+    private BigDecimal farmerProposedRate;
+
+    @Column(name = "admin_counter_rate", precision = 10, scale = 2)
+    private BigDecimal adminCounterRate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rate_status")
+    @Builder.Default
+    private RateStatus rateStatus = RateStatus.PENDING;
+
+    @Column(name = "negotiation_notes", columnDefinition = "TEXT")
+    private String negotiationNotes;
 
     @Column(name = "inspection_notes", columnDefinition = "TEXT")
     private String inspectionNotes;

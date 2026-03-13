@@ -28,6 +28,7 @@ public class BatchService {
     private final BatchRepository batchRepository;
     private final DailyHarvestReportRepository dailyHarvestReportRepository;
     private final UserRepository userRepository;
+    private final com.banana.harvest.repository.FarmRepository farmRepository;
 
     @Transactional(readOnly = true)
     public BatchResponse getBatchById(UUID batchId) {
@@ -88,10 +89,23 @@ public class BatchService {
         }
 
         batch.setStatus(request.getStatus());
-        
-        // Track specific status dates
-        if (request.getStatus() == BatchStatus.HARVEST_IN_PROGRESS && batch.getStartDate() == null) {
-            batch.setStartDate(LocalDate.now());
+        // Track specific status dates and update Farm status
+        if (request.getStatus() == BatchStatus.HARVEST_IN_PROGRESS) {
+            if (batch.getStartDate() == null) {
+                batch.setStartDate(LocalDate.now());
+            }
+            if (batch.getFarm() != null) {
+                batch.getFarm().setStatus(com.banana.harvest.entity.enums.FarmStatus.HARVEST_IN_PROGRESS);
+                farmRepository.save(batch.getFarm());
+            }
+        } else if (request.getStatus() == BatchStatus.HARVEST_COMPLETED || request.getStatus() == BatchStatus.COMPLETED) {
+            if (batch.getEndDate() == null) {
+                batch.setEndDate(LocalDate.now());
+            }
+            if (batch.getFarm() != null) {
+                batch.getFarm().setStatus(com.banana.harvest.entity.enums.FarmStatus.COMPLETED);
+                farmRepository.save(batch.getFarm());
+            }
         }
 
         Batch savedBatch = batchRepository.save(batch);

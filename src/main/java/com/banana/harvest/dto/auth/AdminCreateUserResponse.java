@@ -10,17 +10,18 @@ import java.util.UUID;
 
 @Data
 @Builder
-public class UserResponse {
+public class AdminCreateUserResponse {
     private UUID id;
     private String email;
     private String fullName;
     private String phone;
     private UserRole role;
-    private Boolean isActive;
     private VendorType vendorType;
     private String bankName;
     private String accountNumber;
     private String ifscCode;
-    private String profileImageUrl;
+    private Boolean isActive;
     private LocalDateTime createdAt;
+    // One-time generated password for admin to share with the new user
+    private String generatedPassword;
 }

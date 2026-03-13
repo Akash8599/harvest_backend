@@ -4,6 +4,8 @@ import com.banana.harvest.entity.enums.InspectionRequestStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -19,6 +21,11 @@ public class InspectionRequestResponse {
     private String vendorName;
     private String notes;
     private InspectionRequestStatus status;
+    private LocalDate visitDate;
+    private String placeOfVisit;
+    private String visitorName;
+    private String visitorContact;
+    private BigDecimal proposedRate;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
 }

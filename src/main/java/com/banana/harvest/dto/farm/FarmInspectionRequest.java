@@ -12,7 +12,7 @@ public class FarmInspectionRequest {
     @NotNull(message = "Farm ID is required")
     private String farmId;
 
-    @NotNull(message = "Estimated boxes is required")
+    // @NotNull(message = "Estimated boxes is required")
     private Integer estimatedBoxes;
 
     private String inspectionNotes;
@@ -23,6 +23,10 @@ public class FarmInspectionRequest {
     private BigDecimal gpsAccuracy;
 
     private String requestId;
+
+    private BigDecimal proposedRate;
+    
+    private BigDecimal farmerProposedRate;
 
     private List<String> photoUrls;
 }
