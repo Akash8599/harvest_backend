@@ -295,6 +295,8 @@ public class HarvestService {
                                 .driverPhone(request.getDriverPhone())
                                 .totalBoxes(request.getTotalBoxes())
                                 .dispatchDate(request.getDispatchDate().atStartOfDay())
+                                .odometerStartKm(request.getOdometerStartKm())
+                                .odometerStartPhotoUrl(request.getOdometerStartPhotoUrl())
                                 .notes(request.getNotes())
                                 .createdBy(user)
                                 .build();
@@ -385,6 +387,8 @@ public class HarvestService {
                                 .receivedAt(gatePass.getReceivedAt())
                                 .receivedBy(gatePass.getReceivedBy() != null ? gatePass.getReceivedBy().getFullName()
                                                 : null)
+                                .odometerStartKm(gatePass.getOdometerStartKm())
+                                .odometerStartPhotoUrl(gatePass.getOdometerStartPhotoUrl())
                                 .notes(gatePass.getNotes())
                                 .createdBy(gatePass.getCreatedBy() != null ? gatePass.getCreatedBy().getFullName()
                                                 : null)

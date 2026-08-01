@@ -49,12 +49,24 @@ public class InventoryController {
 
     @PostMapping("/items/{id}/stock")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER') or hasRole('STORE_KEEPER')")
-    @Operation(summary = "Add stock", description = "Add stock to inventory item")
-    public ResponseEntity<ApiResponse<Void>> addStock(
+    @Operation(summary = "Adjust stock", description = "Add or remove stock from inventory item (accepts negative values)")
+    public ResponseEntity<ApiResponse<Void>> adjustStock(
             @PathVariable UUID id,
-            @RequestParam Integer quantity) {
-        inventoryService.addStock(id, quantity);
-        return ResponseEntity.ok(ApiResponse.success("Stock added successfully", null));
+            @RequestParam Integer quantity,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        inventoryService.addStock(id, quantity, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Stock adjusted successfully", null));
+    }
+
+    @PutMapping("/items/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('MANAGER')")
+    @Operation(summary = "Update inventory item", description = "Update basic details of an inventory item")
+    public ResponseEntity<ApiResponse<InventoryItemResponse>> updateItem(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateInventoryItemRequest request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        InventoryItemResponse response = inventoryService.updateItem(id, request, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Item updated successfully", response));
     }
 
     @GetMapping("/items/{id}/stock")

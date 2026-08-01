@@ -23,6 +23,7 @@ public class InventoryService {
     private final BatchRepository batchRepository;
     private final UserRepository userRepository;
     private final VendorLedgerRepository ledgerRepository;
+    private final InventoryAuditLogRepository auditLogRepository;
 
     @Transactional(readOnly = true)
     public List<InventoryItemResponse> getAllItems() {
@@ -68,16 +69,74 @@ public class InventoryService {
     }
 
     @Transactional
-    public void addStock(UUID itemId, Integer quantity) {
+    public void addStock(UUID itemId, Integer quantity, UUID performedById) {
         InventoryItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory item", "id", itemId));
 
         InventoryStock stock = stockRepository.findByItemId(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Stock", "itemId", itemId));
 
+        User user = userRepository.findById(performedById)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", performedById));
+
+        int oldQty = stock.getAvailableQuantity();
+        int newQty = oldQty + quantity;
+
+        if (newQty < 0) {
+            throw new BusinessException("Stock adjustment would result in negative available quantity. Current: " + 
+                    oldQty + ", Adjustment: " + quantity);
+        }
+
         stock.setTotalQuantity(stock.getTotalQuantity() + quantity);
-        stock.setAvailableQuantity(stock.getAvailableQuantity() + quantity);
+        stock.setAvailableQuantity(newQty);
         stockRepository.save(stock);
+
+        // Audit Log
+        InventoryAuditLog auditLog = InventoryAuditLog.builder()
+                .item(item)
+                .action("STOCK_ADJUSTMENT")
+                .oldValue(String.valueOf(oldQty))
+                .newValue(String.valueOf(newQty))
+                .notes("Stock adjusted by " + (quantity >= 0 ? "+" : "") + quantity)
+                .performedBy(user)
+                .build();
+        auditLogRepository.save(auditLog);
+    }
+
+    @Transactional
+    public InventoryItemResponse updateItem(UUID id, UpdateInventoryItemRequest request, UUID performedById) {
+        InventoryItem item = itemRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory item", "id", id));
+
+        User user = userRepository.findById(performedById)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", performedById));
+
+        // Uniqueness check for itemCode
+        if (!item.getItemCode().equals(request.getItemCode()) && 
+                itemRepository.existsByItemCode(request.getItemCode())) {
+            throw new BusinessException("Item code already exists");
+        }
+
+        String oldValues = String.format("Name: %s, Code: %s", item.getItemName(), item.getItemCode());
+        
+        item.setItemName(request.getItemName());
+        item.setItemCode(request.getItemCode());
+        InventoryItem updatedItem = itemRepository.save(item);
+
+        String newValues = String.format("Name: %s, Code: %s", updatedItem.getItemName(), updatedItem.getItemCode());
+
+        // Audit Log
+        InventoryAuditLog auditLog = InventoryAuditLog.builder()
+                .item(updatedItem)
+                .action("ITEM_UPDATE")
+                .oldValue(oldValues)
+                .newValue(newValues)
+                .notes("Item basic details updated")
+                .performedBy(user)
+                .build();
+        auditLogRepository.save(auditLog);
+
+        return mapToItemResponse(updatedItem);
     }
 
     @Transactional

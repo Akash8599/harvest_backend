@@ -32,7 +32,19 @@ public class DatabaseRepairRunner implements CommandLineRunner {
                     "ALTER TABLE banana_harvest.batches ADD CONSTRAINT batches_status_check CHECK (status IN ('CREATED', 'IN_PROGRESS', 'HARVEST_IN_PROGRESS', 'HARVEST_COMPLETED', 'DISPATCH_IN_PROGRESS', 'DISPATCH_COMPLETED', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'))");
             log.info("Successfully updated batches_status_check constraint.");
         } catch (Exception e) {
-            log.error("Failed to update status constraint: {}", e.getMessage());
+            log.error("Failed to update batches status constraint: {}", e.getMessage());
+        }
+
+        // Fix farms_status_check constraint
+        log.info("Updating farms_status_check constraint...");
+        try {
+            jdbcTemplate.execute("ALTER TABLE banana_harvest.farms DROP CONSTRAINT IF EXISTS farms_status_check");
+            jdbcTemplate.execute(
+                    "ALTER TABLE banana_harvest.farms ADD CONSTRAINT farms_status_check " +
+                    "CHECK (status IN ('ACTIVE', 'INSPECTION_PENDING', 'READY_FOR_HARVEST', 'HARVEST_IN_PROGRESS', 'COMPLETED', 'INSPECTION_REJECTED'))");
+            log.info("Successfully updated farms_status_check constraint.");
+        } catch (Exception e) {
+            log.error("Failed to update farms status constraint: {}", e.getMessage());
         }
         
 

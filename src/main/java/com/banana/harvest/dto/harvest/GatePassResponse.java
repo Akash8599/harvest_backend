@@ -3,6 +3,7 @@ package com.banana.harvest.dto.harvest;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,6 +22,8 @@ public class GatePassResponse {
     private Integer receivedBoxes;
     private LocalDateTime receivedAt;
     private String receivedBy;
+    private BigDecimal odometerStartKm;
+    private String odometerStartPhotoUrl;
     private String notes;
     private String createdBy;
     private LocalDateTime createdAt;

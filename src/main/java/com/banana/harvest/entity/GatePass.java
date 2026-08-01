@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -55,6 +56,12 @@ public class GatePass {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "received_by")
     private User receivedBy;
+
+    @Column(name = "odometer_start_km", precision = 10, scale = 2)
+    private BigDecimal odometerStartKm;
+
+    @Column(name = "odometer_start_photo_url")
+    private String odometerStartPhotoUrl;
 
     @Column(columnDefinition = "TEXT")
     private String notes;

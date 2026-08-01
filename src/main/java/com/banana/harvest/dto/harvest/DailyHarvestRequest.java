@@ -33,19 +33,27 @@ public class DailyHarvestRequest {
 
     private String wastagePhotoUrl;
 
-    // Transport / odometer
+    // Transport / odometer (Deprecated - Moving to GatePass)
+    @Deprecated
     private String vehicleNumber;
+    @Deprecated
     private BigDecimal odometerStartKm;
+    @Deprecated
     private BigDecimal odometerEndKm;
+    @Deprecated
     private String odometerStartPhotoUrl;
+    @Deprecated
     private String odometerEndPhotoUrl;
+    @Deprecated
     private BigDecimal ratePerKm;
+    @Deprecated
     private BigDecimal tollAmount;
+    @Deprecated
     private String tollReceiptPhotoUrl;
+    @Deprecated
     private String weighBridgePhotoUrl;
 
     // Labor
-    @NotNull(message = "Labor count is required")
     private Integer laborCount;
 
     private BigDecimal laborCost;
